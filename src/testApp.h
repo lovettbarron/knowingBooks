@@ -53,6 +53,4 @@ class testApp : public ofBaseApp{
         vector<cv::Vec2f> intersect;
         vector< vector<cv::Point> > poly;
     
-    
-    
 };
