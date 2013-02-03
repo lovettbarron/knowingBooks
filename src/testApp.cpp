@@ -39,6 +39,8 @@ void testApp::setup(){
     imitate(edgeImg,threshImg);
     imitate(intersectMat, thresh);
     imitate(intersectImg, intersectMat);
+    
+    kernal = cv::getStructuringElement(MORPH_ELLIPSE, cv::Size(19,19));
 }
 
 //--------------------------------------------------------------
@@ -52,10 +54,14 @@ void testApp::update(){
         
         cv::resize(img, img, cv::Size(0,0), 1/scale, 1/scale); // Resize for speed
         medianBlur(img, panel.getValueI("blur")); // Median blur instead of blur?
+        morphologyEx(img, morph, MORPH_CLOSE, kernal);
         
-        if(panel.getValueB("thresholdOn")) threshold(img, thresh, panel.getValueI("threshold"));
-        else thresh = img;
+        if(panel.getValueB("thresholdOn")) threshold(img, thresh, panel.getValueI("threshold"),THRESH_OTSU+THRESH_TRUNC);
+       else thresh = img;
         
+//        adaptiveThreshold(morph, thresh, 250, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 3, 2);
+  
+
         float cThresh1 = panel.getValueF("CannyThresh1");
         float cThresh2 = panel.getValueF("CannyThresh2");
         int cAppSize = 3;
@@ -65,15 +71,22 @@ void testApp::update(){
         double rho = panel.getValueI("HoughRho");
         double theta = CV_PI / panel.getValueI("HoughTheta");
         double hThresh = panel.getValueI("HoughThresh");
-        
+//        dilate(edges, edges, Mat(), cv::Point(-1, -1));
         cv::HoughLines( edges, lines, rho, theta, hThresh, 0, 0 );
         
         // This tries the approx poly method
         getIntersect( &lines, &intersect );
         
         getPoly( &edges, &poly );
+//        detected.clear();
+//        for(int i=0;i<poly.size();i++) {
+//            cv::Mat output;
+//            extractImageContents(&poly[i], &img, &output);
+//            detected.push_back(output);
+//            
+//        }
         
-        
+        // Convert to ofImage and update glTexture
         toOf(thresh, threshImg);
         threshImg.update();
         
@@ -107,8 +120,8 @@ void testApp::draw(){
     if(intersect.size() > 0) {
         for(int i=0;i<intersect.size();i++) {
             ofPoint inters = toOf(intersect.at(i))*scale;
-            ofSetColor(255,0,0);
-            ofCircle(inters,10);
+            ofSetColor(240,20,20);
+            ofCircle(inters,12);
             ofSetColor(255);
             ofDrawBitmapString(ofToString(i), inters);
         }
@@ -138,10 +151,41 @@ void testApp::draw(){
 //--------------------------------------------------------------
 //                  Get Contour approach
 //--------------------------------------------------------------
+void testApp::extractImageContents( vector<cv::Point> * roi, cv::Mat * src, cv::Mat * output) {
+    
+//    cv::PCA pca;
+    
+    cv::Mat copy = *src;
+    copy.copyTo(*output);
+    cv::Rect box = boundingRect(*roi);
+//    cv::RotatedRect box = rotat
+    cv::Mat mask; imitate(mask, *src);
+    mask = cv::Mat::zeros(mask.rows, mask.cols, CV_8UC1);
+  
+//    
+//  
+//    if (box.angle < -45.) {
+//        angle += 90.0;
+//        swap(rect_size.width, rect_size.height);
+//    }
+//    
+//    // get the rotation matrix
+//    M = getRotationMatrix2D(rect.center, angle, 1.0);
+//    // perform the affine transformation
+//    warpAffine(src, rotated, M, src.size(), INTER_CUBIC);
+//    // crop the resulting image
+//    getRectSubPix(rotated, rect_size, rect.center, cropped);
+//    
+}
+
+//--------------------------------------------------------------
+//                  Get Contour approach
+//--------------------------------------------------------------
 void testApp::getPoly( cv::Mat * src, vector< vector<cv::Point> > * dst ) {
     dst->clear();
     vector< vector<cv::Point> > contours;
     vector<cv::Point> approx;
+   // cv::invert(*src, *src);
     dilate(*src, *src, Mat(), cv::Point(-1,-1));
     findContours( *src, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE );
     approx.reserve(contours.size());
@@ -150,19 +194,19 @@ void testApp::getPoly( cv::Mat * src, vector< vector<cv::Point> > * dst ) {
         double arc = arcLength( contours[i] , false)*0.02;
         cv::approxPolyDP(Mat(contours[i]), approx, arc, true);
         
-        if (approx.size() == 4 &&
-            fabs(contourArea(Mat(approx))) > 200 &&
+        if (approx.size() <= 4 &&
+            fabs(contourArea(Mat(approx))) > 100 &&
             isContourConvex(Mat(approx)))
         {
             double maxCosine = 0;
             
-            for (int j = 2; j < 5; j++)
+            for (int j = 2; j < 6; j++)
             {
                 double cosine = fabs( angle( approx[j%4], approx[j-2], approx[j-1] ) );
                 maxCosine = MAX(maxCosine, cosine);
             }
             
-            if (maxCosine < 0.3)
+//            if (maxCosine < 0.5)
                 dst->push_back(approx);
         }
     }
@@ -211,7 +255,7 @@ void testApp::getIntersect(vector<cv::Vec2f> * src, vector<cv::Vec2f> * dst) {
         {
             cv::Vec2f line1 = src->at(i);
             cv::Vec2f line2 = src->at(j);
-            if(acceptLinePair(line1, line2, CV_PI / 32))
+            if(acceptLinePair(line1, line2, CV_PI / 80)) // Must be close to 90deg, so not angled
             {
                 cv::Vec2f intersection = computeIntersect(line1, line2);
                 if( intersection[0] < intersectMat.cols * 1/scale && intersection[0] >= 0 

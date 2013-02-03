@@ -19,10 +19,14 @@ class testApp : public ofBaseApp{
 		void update();
 		void draw();
     
-        void getIntersect(vector<cv::Vec2f> * src, vector<cv::Vec2f> * dst);
-    
-//        void getPoly( vector<cv::Vec2f> * src, vector<cv::Vec2f> * dst);
+        // Gets the intersect of houghlines
+        void getIntersect(vector<cv::Vec2f> * src, vector<cv::Vec2f> * dst);    
+        // Extracts polys via findContour
         void getPoly( cv::Mat * src, vector< vector<cv::Point> > * dst );
+    
+        // Extracts mat ROI from points (bounding box)
+        void extractImageContents( vector<cv::Point> * roi, cv::Mat * src, cv::Mat * output);
+    
 
         double angle( cv::Point pt1, cv::Point pt2, cv::Point pt0 );
         cv::Point getCenter( vector<cv::Point> * src );
@@ -38,6 +42,11 @@ class testApp : public ofBaseApp{
         ofxKinect kinect;
     
         cv::Mat img;
+    
+        cv::Mat kernal;
+    
+        cv::Mat morph;
+    
         cv::Mat thresh;
         cv::Mat edges;
         cv::Mat intersectMat;
@@ -52,5 +61,5 @@ class testApp : public ofBaseApp{
         vector<cv::Vec2f> lines;
         vector<cv::Vec2f> intersect;
         vector< vector<cv::Point> > poly;
-    
+        vector< cv::Mat > detected;
 };
